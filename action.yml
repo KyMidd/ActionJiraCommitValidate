@@ -1,0 +1,103 @@
+name: 'Check Commits for Jira'
+description: 'I validate that a each commit message contains a leading, valid Jira ticket'
+inputs:
+  jira-username:
+    description: 'Username used to poll Jira for ticket information'
+    required: true
+  jira-api-token:
+    description: 'API Token used to poll Jira for ticket information'
+    required: true
+  JIRA_URL:
+    description: 'URL of the Jira instance, e.g. https://foo.atlassian.net'
+    required: true
+    default: 'https://foo.atlassian.net'
+  BASE_BRANCH:
+    description: 'Base branch'
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - id: trigger_jenkins_job_using_api
+      run: |
+        #Parameters
+        jira_username="${{ inputs.jira-username }}"
+        jira_api_token="${{ inputs.jira-api-token }}"
+        JIRA_URL="${{ inputs.JIRA_URL }}"
+        BASE_BRANCH="${{ inputs.BASE_BRANCH }}"
+        
+        # Some commits don't have valid Jira ticket leads, like those built by whitesource or github
+        # This list permits some commits to show as valid and not poll against Jira
+        commit_static_permit_list="(^Merge pull request \#)|(^Merge branch)|(^Add .whitesource configuration file)|(^Revert \")"
+ 
+        # Initialize invalidTicket as false, will be set to true by any non-exist tickets
+        invalidTicket=false
+
+        # Find current branch name
+        CURRENT_BRANCH=$(git branch | grep ^\* | cut -d "*" -f 2 | cut -d " " -f 2)
+
+        # Find hash of commit most common ancestor, e.g. where branch began
+        BRANCH_MERGE_BASE=$(git merge-base ${BASE_BRANCH} ${CURRENT_BRANCH})
+
+        # Find all commits since common ancestor
+        BRANCH_COMMITS=$(git rev-list ${BRANCH_MERGE_BASE}..HEAD)
+
+        while IFS= read -r commit; do
+          
+          # Check if ticket in static permit-list for non-Jira commit_sha
+          if $(git log --max-count=1 --format=%B $commit | grep -iqE "$commit_static_permit_list"); then
+            echo "************"
+            echo "Commit message \"$(git log --max-count=1 --format=%B $commit)\" matches static permit-list and is valid, continuing"
+            continue
+          fi
+          
+          # Filter commit message to just ticket at beginning
+          unset TICKET_TO_CHECK
+          TICKET_TO_CHECK=$(git log --max-count=1 --format=%B $commit | tr '[a-z]' '[A-Z]' | sed -nE 's/^([a-zA-Z]{2,}-[0-9]{2,}).*$/\1/p' | head -n 1)
+
+          # If line count is zero, couldn't find valid ticket number to check
+          if [[ $(echo "$TICKET_TO_CHECK" | awk 'NF' | wc -l) -eq 0 ]]; then
+            echo "************"
+            echo "❌  Couldn't identify valid ticket number to check in commit"
+            echo "❌  Invalid commit message: \"$(git log --max-count=1 --format=%B $commit)\""
+            invalidTicket=true
+          else
+            # If valid ticket number found, check it
+            echo "************"
+            echo "Checking if this ticket exists: $TICKET_TO_CHECK"
+            
+            # Check if ticket exists
+            unset CURL
+            CURL=$(curl -s --url "https://$JIRA_URL/rest/api/3/search?jql=key=${TICKET_TO_CHECK}" --header 'Accept:application/json' --user ${jira_username}:${jira_api_token} 2>&1)
+            if [[ "$CURL" == *"Issue does not exist"* ]]; then
+              echo "❌  Ticket referenced in commit doesn't exist in Jira. You must use real Jira tickets at the start of commit messages"
+              echo "❌  Recognized ticket in commit: $TICKET_TO_CHECK"
+              echo "❌  Commit message: \"$(git log --max-count=1 --format=%B $commit)\""
+              echo "❌  Hash: $commit"
+              echo "************"
+              # Set this variable to trigger rejection if any commit fails regex
+              invalidTicket=true
+            else
+              echo "Ticket $TICKET_TO_CHECK is valid"
+            fi
+          fi
+        done <<< $BRANCH_COMMITS
+
+        # If any commit are invalid, print reject message
+        if [[ "$invalidTicket" == true ]]; then
+            echo "❌  Your push was rejected because at least one commit message on this branch is invalid"
+            echo "❌  Please fix the commit message(s) and push again."
+            echo "❌  https://help.github.com/en/articles/changing-a-commit-message"
+            echo "************"
+            exit 1
+        else
+            echo "************"
+            echo "All commits are valid"
+            echo "************"
+            exit 0
+        fi
+
+      shell: bash
+branding:
+  icon: 'arrow-down-circle'
+  color: 'gray-dark'
