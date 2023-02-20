@@ -1,10 +1,12 @@
 # Jira Commit Validate
 
-This Action is capable of reading all commits a branch has that deviate from a base branch, and will derive on each commit the leading ticket number. That ticket number will be checked against Jira using an API call to validate that the ticket exists. 
+This Action reads all commits on a PR branch that deviate from a base branch, and checks each commit for a leading ticket number (at the beginning). It then checks to make sure that ticket number exists in a Jira instance you specify to make sure the ticket exists. 
 
-PRs can be blocked from merging if this API call derives that a Jira ticket doesn't exist for each commit. 
+You can (and should) block PRs from being merged if this Action fails - you can do so by creating branch policies to protect branches and requiring this Action succeeds in order to merge. 
 
-If there is a failure, users should rebase their branch's commit history to contain only valid commits that link real Jira tickets. 
+If there is a failure, users should rebase their branch's commit history to contain only valid commits that link real Jira tickets. A great command to do this is: `git reset --soft  && git commit -a && git rebase master`. 
+
+There's more information on this Action at Medium here: https://medium.com/@kymidd/lets-do-devops-github-action-check-if-each-commit-contains-valid-jira-ticket-id-63693def70a8
 
 # Example call of this action
 
