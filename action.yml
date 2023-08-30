@@ -28,7 +28,7 @@ runs:
         
         # Some commits don't have valid Jira ticket leads, like those built by whitesource or github
         # This list permits some commits to show as valid and not poll against Jira
-        commit_static_permit_list="(^Merge pull request \#)|(^Merge branch)|(^Add .whitesource configuration file)|(^Revert \")"
+        commit_static_permit_list="(^Merge pull request \#)|(^Merge( remote-tracking)? branch)|(^Add .whitesource configuration file)|(^Revert \")"
  
         # Initialize invalidTicket as false, will be set to true by any non-exist tickets
         invalidTicket=false
