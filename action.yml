@@ -53,7 +53,7 @@ runs:
           
           # Filter commit message to just ticket at beginning
           unset TICKET_TO_CHECK
-          TICKET_TO_CHECK=$(git log --max-count=1 --format=%B $commit | tr '[a-z]' '[A-Z]' | sed -nE 's/^([a-zA-Z]{2,}-[0-9]{2,}).*$/\1/p' | head -n 1)
+          TICKET_TO_CHECK=$(git log --max-count=1 --format=%B $commit | tr '[a-z]' '[A-Z]' | sed -nE 's/^([A-Z][A-Z0-9]{1,}-[0-9]{1,}).*$/\1/p' | head -n 1)
 
           # If line count is zero, couldn't find valid ticket number to check
           if [[ $(echo "$TICKET_TO_CHECK" | awk 'NF' | wc -l) -eq 0 ]]; then
