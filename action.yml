@@ -46,7 +46,6 @@ runs:
           
           # Check if ticket in static permit-list for non-Jira commit_sha
           if $(git log --max-count=1 --format=%B $commit | grep -iqE "$commit_static_permit_list"); then
-            echo "************"
             echo "Commit message \"$(git log --max-count=1 --format=%B $commit)\" matches static permit-list and is valid, continuing"
             continue
           fi
@@ -57,14 +56,12 @@ runs:
 
           # If line count is zero, couldn't find valid ticket number to check
           if [[ $(echo "$TICKET_TO_CHECK" | awk 'NF' | wc -l) -eq 0 ]]; then
-            echo "************"
             echo "❌  Couldn't identify valid ticket number to check in commit"
             echo "❌  Invalid commit message: \"$(git log --max-count=1 --format=%B $commit)\""
             invalidTicket=true
           else
             # If valid ticket number found, check it
-            echo "************"
-            echo "Checking if this ticket exists: $TICKET_TO_CHECK"
+            echo "ℹ️ Checking if this ticket exists: $TICKET_TO_CHECK"
             
             # Check if ticket exists
             unset CURL
@@ -78,7 +75,7 @@ runs:
               # Set this variable to trigger rejection if any commit fails regex
               invalidTicket=true
             else
-              echo "Ticket $TICKET_TO_CHECK is valid"
+              echo "✅ Ticket $TICKET_TO_CHECK is valid"
             fi
           fi
         done <<< $BRANCH_COMMITS
@@ -88,12 +85,9 @@ runs:
             echo "❌  Your push was rejected because at least one commit message on this branch is invalid"
             echo "❌  Please fix the commit message(s) and push again."
             echo "❌  https://help.github.com/en/articles/changing-a-commit-message"
-            echo "************"
             exit 1
         else
-            echo "************"
-            echo "All commits are valid"
-            echo "************"
+            echo "✅ All commits are valid"
             exit 0
         fi
 
